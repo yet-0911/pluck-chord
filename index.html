@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>彈撥和弦指法</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap">
+<style>
+/* 版面：上方定弦列 → 模式分頁 → 寬螢幕左側指板、右側控制與結果；手機依序堆疊 */
+:root{
+  --bg:#EAF0EE; --panel:#F8FBFA; --cell:#E1E9E6; --line:#C6D3CF;
+  --ink:#172526; --muted:#5A6C69;
+  --accent:#2C5A88; --accent-ink:#FFFFFF; --accent-soft:#D5E1EE;
+  --gold:#C08A12; --gold-soft:#F4E6C2;
+  --ok:#2A7A4C; --ok-soft:#DCEFE3; --bad:#B03838; --bad-soft:#F6DEDC;
+  --f-display:"Noto Serif TC","Songti TC",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1618; --panel:#152024; --cell:#1B292D; --line:#2B3C40;
+  --ink:#E2ECE9; --muted:#8FA3A0;
+  --accent:#7EA7D4; --accent-ink:#0E1618; --accent-soft:#233850;
+  --gold:#E2B24C; --gold-soft:#3B3220;
+  --ok:#6CC28E; --ok-soft:#1C3527; --bad:#E57C7C; --bad-soft:#3E2224;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1618; --panel:#152024; --cell:#1B292D; --line:#2B3C40;
+  --ink:#E2ECE9; --muted:#8FA3A0;
+  --accent:#7EA7D4; --accent-ink:#0E1618; --accent-soft:#233850;
+  --gold:#E2B24C; --gold-soft:#3B3220;
+  --ok:#6CC28E; --ok-soft:#1C3527; --bad:#E57C7C; --bad-soft:#3E2224;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+h1{font-family:var(--f-display);font-size:1.6rem;margin:0;letter-spacing:.04em;text-wrap:balance}
+.top p{margin:.1rem 0 0;color:var(--muted);font-size:.9rem}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted);letter-spacing:.04em}
+select,input[type=number]{font:inherit;font-size:.95rem;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-width:0}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.setup{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}
+.strs{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.strs label.f{width:74px}
+.btn{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:6px 12px;font-size:.9rem}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.sq{width:34px;height:34px;padding:0;font-size:1.1rem}
+details.rules{flex-basis:100%;border-top:1px dashed var(--line);padding-top:10px}
+details.rules summary{cursor:pointer;font-weight:500;font-size:.92rem}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:10px}
+.rgrid .hint{font-size:.74rem;color:var(--muted);letter-spacing:0}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:.88rem}
+.chk input{margin-top:4px;accent-color:var(--accent)}
+.tabs{display:flex;gap:4px;background:var(--cell);padding:4px;border-radius:10px;overflow-x:auto}
+.tabs button{flex:1;border:0;background:none;padding:9px 10px;border-radius:7px;font-size:.93rem;white-space:nowrap;color:var(--muted)}
+.tabs button[aria-selected=true]{background:var(--panel);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.main{display:grid;gap:12px;grid-template-columns:minmax(0,1fr);grid-template-areas:"ctrl" "board" "res"}
+@media (min-width:860px){
+  .main{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);grid-template-areas:"board ctrl" "board res";align-items:start}
+  .boardp{position:sticky;top:calc(env(safe-area-inset-top,0px) + 10px)}
+}
+.ctrl{grid-area:ctrl}.boardp{grid-area:board}.res{grid-area:res}
+h2{font-size:.8rem;letter-spacing:.12em;color:var(--muted);margin:0 0 8px;font-weight:500}
+.sub{margin-top:14px}
+/* 簡譜 */
+.jp{display:inline-flex;align-items:center;line-height:1}
+.jp i{font-style:normal;font-size:.7em;margin-right:1px;transform:translateY(-.35em)}
+.jp b{position:relative;font-weight:700;font-variant-numeric:tabular-nums}
+.jp u{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;text-decoration:none;font-size:.32em;line-height:.9;gap:1px}
+.jp u.up{bottom:100%;padding-bottom:2px;flex-direction:column-reverse}
+.jp u.dn{top:100%;padding-top:2px}
+/* 按鍵 */
+.keys{display:grid;gap:5px}
+.k12{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media (min-width:480px){.k12{grid-template-columns:repeat(12,minmax(0,1fr))}}
+.key{border:1px solid var(--line);background:var(--bg);border-radius:7px;padding:10px 0 12px;font-size:1.05rem;display:flex;justify-content:center}
+.key.acc{background:var(--cell)}
+.key.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.key:disabled{opacity:.25;cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:5px 12px;font-size:.88rem}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.opts{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px}
+.pad .row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;margin-bottom:3px}
+.pad .key{padding:12px 0 13px;font-size:.95rem;border-radius:6px}
+.pad .row .key small{display:none}
+/* 指板 */
+.bhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.bscroll{max-height:70vh;overflow:auto;border-radius:8px}
+@media (min-width:860px){.bscroll{max-height:calc(100vh - 150px)}}
+.fb{display:grid;gap:0;min-width:240px}
+.fb .h{position:sticky;top:0;z-index:2;background:var(--panel);text-align:center;padding:4px 2px 6px;font-size:.78rem;color:var(--muted);border:0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.fb .h strong{color:var(--ink);font-size:.9rem}
+.fb .h .mute{color:var(--bad);font-weight:700}
+.fb .lab{font-size:.72rem;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-variant-numeric:tabular-nums}
+.fb .c{position:relative;height:40px;border:0;border-bottom:1px solid var(--line);background:none;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:var(--muted);padding:0}
+.fb .c::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--line)}
+.fb .c.r0{border-bottom:4px double var(--ink)}
+.fb .c.oct{border-bottom-color:var(--muted);border-bottom-style:dashed}
+.fb .c .dot{position:relative;z-index:1;min-width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--panel)}
+.fb .c.tone .dot{background:var(--gold-soft);color:var(--ink)}
+.fb .c.root .dot{box-shadow:inset 0 0 0 2px var(--gold)}
+.fb .c.on .dot{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+.fb .c.dim .dot{opacity:.35}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--muted);margin-top:8px}
+.legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px;background:var(--sw)}
+/* 結果 */
+.status{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;font-weight:700}
+.status.ok{background:var(--ok-soft);color:var(--ok)}
+.status.bad{background:var(--bad-soft);color:var(--bad)}
+.status .big{font-size:1.15rem}
+ul.probs{margin:8px 0 0;padding-left:1.2em;color:var(--bad);font-size:.88rem}
+.vlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.vc{text-align:left;border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.vc.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.vc.fail{border-style:dashed}
+.vstr{display:grid;gap:4px}
+.vstr div{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--panel);border-radius:6px;padding:6px 0 10px}
+.vstr .fr{font-size:.72rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.vstr .n{font-size:1.1rem;min-height:1.2em}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:.72rem;padding:2px 7px;border-radius:999px;background:var(--cell);color:var(--muted)}
+.tag.gold{background:var(--gold-soft);color:var(--ink)}
+.meta{font-size:.85rem;color:var(--muted)}
+.cname{font-size:1.25rem;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cname small{font-size:.8rem;color:var(--muted);font-weight:400}
+.empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+.picked{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:1.3rem;min-height:2.4rem;padding:4px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>彈撥和弦指法</h1>
+    <p>改定弦、找和弦按法，檢查寫出來的伴奏和弦到底按不按得到</p>
+  </header>
+
+  <section class="panel setup" id="setup"></section>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-tab="chord">和弦找按法</button>
+    <button role="tab" data-tab="pitch">指定音高檢查</button>
+    <button role="tab" data-tab="free">自由按</button>
+  </nav>
+
+  <div class="main">
+    <section class="panel ctrl" id="ctrl"></section>
+    <section class="panel boardp" id="board"></section>
+    <section class="panel res" id="res"></section>
+  </div>
+</div>
+
+<script>
+const LETTERS=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const KEYS=['C','♯C','D','♭E','E','F','♯F','G','♭A','A','♭B','B'];
+const DEG=['1','#1','2','b3','3','4','#4','5','#5','6','b7','7'];
+const CN=['一','二','三','四','五','六'];
+const PRESETS={
+  '中阮':[43,50,55,62],
+  '大阮':[38,45,50,57],
+  '柳琴':[55,62,67,74],
+  '琵琶':[45,50,52,57],
+};
+const TYPES={
+  maj:{n:'大三',s:'',iv:[0,4,7]}, min:{n:'小三',s:'m',iv:[0,3,7]},
+  dim:{n:'減三',s:'dim',iv:[0,3,6]}, aug:{n:'增三',s:'aug',iv:[0,4,8]},
+  sus2:{n:'掛二',s:'sus2',iv:[0,2,7]}, sus4:{n:'掛四',s:'sus4',iv:[0,5,7]},
+  '7':{n:'屬七',s:'7',iv:[0,4,7,10]}, maj7:{n:'大七',s:'maj7',iv:[0,4,7,11]},
+  m7:{n:'小七',s:'m7',iv:[0,3,7,10]}, m7b5:{n:'半減七',s:'m7♭5',iv:[0,3,6,10]},
+  dim7:{n:'減七',s:'dim7',iv:[0,3,6,9]}, '6':{n:'大六',s:'6',iv:[0,4,7,9]},
+  m6:{n:'小六',s:'m6',iv:[0,3,7,9]}, add9:{n:'加九',s:'add9',iv:[0,4,7,2]},
+};
+const DEF={preset:'中阮',key:2,strings:[43,50,55,62],maxFret:15,maxSpan:5,cross:1,maxFingers:4,minSound:3,barre:true,skipInner:false,omit5:true,rootBass:false,tab:'chord',root:0,type:'maj',picks:[],free:[-1,0,0,-1],selIdx:0};
+function load(){try{return JSON.parse(localStorage.getItem('pluckchord.v1')||'{}')}catch(e){return {}}}
+function save(){try{localStorage.setItem('pluckchord.v1',JSON.stringify(st))}catch(e){}}
+const st=Object.assign({},DEF,load());
+if(!Array.isArray(st.free)||st.free.length!==st.strings.length) st.free=st.strings.map(()=>0);
+
+const $=s=>document.querySelector(s);
+const N=()=>st.strings.length;
+const sLabel=i=>CN[N()-1-i]+'弦';
+const letter=m=>LETTERS[((m%12)+12)%12]+(Math.floor(m/12)-1);
+const accSym=a=>a==='#'?'♯':a==='b'?'♭':'';
+function degHTML(off){const l=DEG[((off%12)+12)%12];const a=l.length>1?accSym(l[0]):'';return `<span class="jp">${a?`<i>${a}</i>`:''}<b>${l.slice(-1)}</b></span>`}
+function jp(m){
+  const t=60+st.key, rel=m-t, oct=Math.floor(rel/12), d=((rel%12)+12)%12;
+  const l=DEG[d], a=l.length>1?accSym(l[0]):'';
+  const dots=k=>Array(k).fill('<span>●</span>').join('');
+  return `<span class="jp">${a?`<i>${a}</i>`:''}<b>${l.slice(-1)}${oct>0?`<u class="up">${dots(oct)}</u>`:''}${oct<0?`<u class="dn">${dots(-oct)}</u>`:''}</b></span>`;
+}
+function chordName(rootPc,typeKey){
+  const T=TYPES[typeKey];
+  return `${degHTML(rootPc-st.key)}<span>${T.s}</span> <small>${LETTERS[rootPc]}${T.s}・${T.n}</small>`;
+}
+
+/* ---------- 可按性判斷 ---------- */
+function check(fr){
+  const probs=[], fretted=[];
+  fr.forEach((f,i)=>{if(f>0)fretted.push({i,f})});
+  const sounding=fr.map((f,i)=>f>=0?i:-1).filter(i=>i>=0);
+  if(!st.skipInner&&sounding.length>1){
+    const gap=[];for(let i=sounding[0];i<=sounding[sounding.length-1];i++)if(fr[i]<0)gap.push(sLabel(i));
+    if(gap.length)probs.push(`要跳過中間的${gap.join('、')}不彈`);
+  }
+  if(!fretted.length) return {ok:!probs.length,probs,fingers:0,span:0,pos:0,barre:false,sounding};
+  const fs=fretted.map(x=>x.f), min=Math.min(...fs), max=Math.max(...fs), span=max-min;
+  if(span>st.maxSpan) probs.push(`上下跨度 ${span} 個半音，超過上限 ${st.maxSpan}`);
+  let worst=null;
+  for(let a=0;a<fretted.length;a++)for(let b=a+1;b<fretted.length;b++){
+    const A=fretted[a],B=fretted[b],k=Math.abs(A.i-B.i);
+    if(k<2)continue;
+    const allow=st.maxSpan-st.cross*(k-1), d=Math.abs(A.f-B.f);
+    if(d>allow&&(!worst||d-allow>worst.over)) worst={A,B,k,d,allow,over:d-allow};
+  }
+  if(worst){const hi=Math.max(worst.A.i,worst.B.i),lo=Math.min(worst.A.i,worst.B.i);
+    probs.push(`${sLabel(hi)}和${sLabel(lo)}中間隔 ${worst.k-1} 條弦，品差 ${worst.d} 個半音（這個橫向距離最多 ${fmt(worst.allow)}）`);}
+  const groups={};fretted.forEach(x=>{(groups[x.f]=groups[x.f]||[]).push(x.i)});
+  let fingers=0,barre=false;
+  Object.keys(groups).map(Number).sort((a,b)=>a-b).forEach(f=>{
+    const g=groups[f];
+    if(st.barre&&f===min&&g.length>1){
+      const lo=Math.min(...g),hi=Math.max(...g);let blocked=false;
+      for(let j=lo+1;j<hi;j++)if(fr[j]===0)blocked=true;
+      if(!blocked){fingers+=1;barre=true;return}
+    }
+    fingers+=g.length;
+  });
+  if(fingers>st.maxFingers) probs.push(`需要 ${fingers} 根手指，超過 ${st.maxFingers} 根`);
+  return {ok:!probs.length,probs,fingers,span,pos:min,barre,sounding};
+}
+const fmt=x=>Number.isInteger(x)?x:x.toFixed(1);
+function score(r,bassOk){return r.pos*0.5+r.span*1.5+r.fingers+(N()-r.sounding.length)*2.5+(bassOk?0:3)}
+
+/* ---------- 和弦搜尋 ---------- */
+function searchChord(){
+  const T=TYPES[st.type], rootPc=(st.key+st.root)%12;
+  const pcs=T.iv.map(x=>(rootPc+x)%12);
+  const req=(st.omit5&&T.iv.length>=4)?pcs.filter((p,i)=>T.iv[i]!==7):pcs;
+  const n=N(), opts=st.strings.map(s=>{const o=[-1];for(let f=0;f<=st.maxFret;f++)if(pcs.includes((s+f)%12))o.push(f);return o});
+  const out=[],cur=new Array(n);
+  const need=Math.min(st.minSound,n);
+  (function rec(i){
+    if(i===n){
+      const snd=[];for(let j=0;j<n;j++)if(cur[j]>=0)snd.push(j);
+      if(snd.length<need)return;
+      if(!st.skipInner&&snd[snd.length-1]-snd[0]+1!==snd.length)return;
+      const have=new Set(snd.map(j=>(st.strings[j]+cur[j])%12));
+      if(!req.every(p=>have.has(p)))return;
+      let low=Infinity;snd.forEach(j=>{low=Math.min(low,st.strings[j]+cur[j])});
+      const bassOk=low%12===rootPc;
+      if(st.rootBass&&!bassOk)return;
+      const r=check(cur);if(!r.ok)return;
+      out.push({frets:cur.slice(),r,bassOk,sc:score(r,bassOk)});return;
+    }
+    for(const o of opts[i]){cur[i]=o;rec(i+1)}
+  })(0);
+  out.sort((a,b)=>a.sc-b.sc||a.r.pos-b.r.pos);
+  return {list:out.slice(0,60),total:out.length,pcs,rootPc};
+}
+
+/* ---------- 指定音高 ---------- */
+function searchPitch(){
+  const picks=[...st.picks].sort((a,b)=>a-b), n=N();
+  if(!picks.length)return {picks,ok:[],fail:[],unreach:[]};
+  const unreach=picks.filter(m=>!st.strings.some(s=>m>=s&&m<=s+st.maxFret));
+  if(unreach.length||picks.length>n)return {picks,ok:[],fail:[],unreach,tooMany:picks.length>n};
+  const ok=[],fail=[],fr=new Array(n).fill(-1),used=new Array(n).fill(false);
+  (function rec(p){
+    if(p===picks.length){const r=check(fr);const item={frets:fr.slice(),r,sc:score(r,true)+r.probs.length*10};(r.ok?ok:fail).push(item);return}
+    for(let i=0;i<n;i++){const s=st.strings[i],m=picks[p];if(used[i]||m<s||m>s+st.maxFret)continue;used[i]=true;fr[i]=m-s;rec(p+1);fr[i]=-1;used[i]=false}
+  })(0);
+  ok.sort((a,b)=>a.sc-b.sc);fail.sort((a,b)=>a.r.probs.length-b.r.probs.length||a.r.span-b.r.span);
+  return {picks,ok,fail,unreach:[]};
+}
+function identify(pcSet){
+  const set=[...new Set(pcSet)],names=[];
+  if(set.length<2)return names;
+  for(const root of set)for(const k in TYPES){
+    const tones=[...new Set(TYPES[k].iv.map(x=>(root+x)%12))];
+    const eq=(a,b)=>a.length===b.length&&a.every(x=>b.includes(x));
+    if(eq(tones,set))names.push({root,k,omit:false});
+    else if(tones.length>=4&&tones.includes((root+7)%12)&&eq(tones.filter(x=>x!==(root+7)%12),set))names.push({root,k,omit:true});
+  }
+  return names;
+}
+
+/* ---------- 聲音 ---------- */
+let ac;
+function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C()}if(ac.state==='suspended')ac.resume();return ac}
+function pluck(m,when){
+  const c=actx();if(!c)return;when=when||c.currentTime+.01;
+  const f=440*Math.pow(2,(m-69)/12);
+  const o=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),g2=c.createGain(),lp=c.createBiquadFilter();
+  o.type='triangle';o.frequency.value=f;o2.type='sine';o2.frequency.value=f*2;g2.gain.value=.25;
+  lp.type='lowpass';lp.frequency.setValueAtTime(Math.min(f*10,12000),when);lp.frequency.exponentialRampToValueAtTime(f*1.5,when+.7);
+  g.gain.setValueAtTime(0,when);g.gain.linearRampToValueAtTime(.3,when+.004);g.gain.exponentialRampToValueAtTime(.001,when+1.8);
+  o.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(g);g.connect(c.destination);
+  o.start(when);o2.start(when);o.stop(when+1.9);o2.stop(when+1.9);
+}
+function strum(fr){const c=actx();if(!c||!fr)return;let t=c.currentTime+.02;fr.forEach((f,i)=>{if(f>=0){pluck(st.strings[i]+f,t);t+=.05}})}
+
+/* ---------- 畫面 ---------- */
+function renderSetup(){
+  const n=N();
+  const pitchOpts=m=>{let h='';for(let x=28;x<=84;x++)h+=`<option value="${x}"${x===m?' selected':''}>${letter(x)}</option>`;return h};
+  let strs='';
+  for(let i=0;i<n;i++)strs+=`<label class="f">${sLabel(i)}<select id="s${i}" data-str="${i}">${pitchOpts(st.strings[i])}</select></label>`;
+  $('#setup').innerHTML=`
+    <label class="f">樂器<select id="preset">${Object.keys(PRESETS).map(k=>`<option${k===st.preset?' selected':''}>${k}</option>`).join('')}<option value="自訂"${st.preset==='自訂'?' selected':''}>自訂</option></select></label>
+    <label class="f">調<select id="key">${KEYS.map((k,i)=>`<option value="${i}"${i===st.key?' selected':''}>1 = ${k}</option>`).join('')}</select></label>
+    <div class="strs">${strs}
+      <button class="btn sq" id="rmStr" aria-label="減少一條弦"${n<=2?' disabled':''}>−</button>
+      <button class="btn sq" id="addStr" aria-label="增加一條弦"${n>=6?' disabled':''}>＋</button>
+    </div>
+    <details class="rules" id="rules"${st.rulesOpen?' open':''}>
+      <summary>手指限制（決定什麼算按得到）</summary>
+      <div class="rgrid">
+        <label class="f">上下最大跨度（半音）<input type="number" id="maxSpan" min="1" max="10" step="1" value="${st.maxSpan}"><span class="hint">同一把位，最低品到最高品</span></label>
+        <label class="f">每多隔一條弦，跨度減少<input type="number" id="cross" min="0" max="4" step="0.5" value="${st.cross}"><span class="hint">手指橫向張開越遠，能拉開的品差越小</span></label>
+        <label class="f">可用手指數<input type="number" id="maxFingers" min="1" max="5" step="1" value="${st.maxFingers}"></label>
+        <label class="f">至少要響幾條弦<input type="number" id="minSound" min="1" max="${n}" step="1" value="${Math.min(st.minSound,n)}"></label>
+        <label class="f">指板範圍（到第幾個半音）<input type="number" id="maxFret" min="5" max="30" step="1" value="${st.maxFret}"></label>
+        <label class="chk"><input type="checkbox" id="barre"${st.barre?' checked':''}>允許食指橫按（最低品同品多弦算一指）</label>
+        <label class="chk"><input type="checkbox" id="skipInner"${st.skipInner?' checked':''}>允許跳過中間的弦不彈</label>
+      </div>
+    </details>`;
+}
+function renderTabs(){document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===st.tab))}
+
+let current={};
+function render(){
+  renderTabs();
+  if(st.tab==='chord'){current=searchChord();current.sel=current.list[st.selIdx]?.frets||null}
+  else if(st.tab==='pitch'){current=searchPitch();const all=current.ok.length?current.ok:current.fail;current.sel=all[st.selIdx]?.frets||all[0]?.frets||null}
+  else{current={sel:st.free,r:check(st.free)}}
+  renderCtrl();renderBoard();renderRes();save();
+}
+
+function renderCtrl(){
+  const el=$('#ctrl');
+  if(st.tab==='chord'){
+    const order=[0,1,2,3,4,5,6,7,8,9,10,11];
+    el.innerHTML=`<h2>和弦根音（簡譜，1 = ${KEYS[st.key]}）</h2>
+      <div class="keys k12">${order.map(o=>`<button class="key${DEG[o].length>1?' acc':''}${o===st.root?' on':''}" data-root="${o}">${degHTML(o)}</button>`).join('')}</div>
+      <div class="sub"><h2>和弦種類</h2><div class="chips">${Object.entries(TYPES).map(([k,T])=>`<button class="chip${k===st.type?' on':''}" data-type="${k}">${T.n}${T.s?' '+T.s:''}</button>`).join('')}</div></div>
+      <div class="opts">
+        <label class="chk"><input type="checkbox" id="rootBass"${st.rootBass?' checked':''}>最低音必須是根音</label>
+        <label class="chk"><input type="checkbox" id="omit5"${st.omit5?' checked':''}>四音和弦可省略五音</label>
+      </div>`;
+  }else if(st.tab==='pitch'){
+    const lo=Math.min(...st.strings),hi=Math.max(...st.strings)+st.maxFret,base=60+st.key;
+    let r0=base+12*Math.floor((lo-base)/12),rows=[];
+    for(let r=r0;r<=hi;r+=12)rows.unshift(r);
+    el.innerHTML=`<h2>點選寫出來的音（最多 ${N()} 個，有高低八度）</h2>
+      <div class="picked">${st.picks.length?[...st.picks].sort((a,b)=>a-b).map(m=>jp(m)).join(''):'<span class="empty">還沒選音，點下面的按鍵</span>'}</div>
+      <div class="pad">${rows.map(r=>`<div class="row">${Array.from({length:12},(_,j)=>{const m=r+j;const dis=m<lo||m>hi;return `<button class="key${DEG[j].length>1?' acc':''}${st.picks.includes(m)?' on':''}" data-pick="${m}"${dis?' disabled':''} aria-label="${letter(m)}">${jp(m)}</button>`}).join('')}</div>`).join('')}</div>
+      <div class="opts"><button class="btn" id="clearPicks">清除</button></div>`;
+  }else{
+    const snd=st.free.map((f,i)=>f>=0?st.strings[i]+f:null).filter(x=>x!==null);
+    el.innerHTML=`<h2>自由按</h2>
+      <p class="meta" style="margin:0 0 10px">直接點指板放手指，每條弦一個音；再點一次同一格就變成不彈。點最上面的弦名可以切換空弦／不彈。</p>
+      <div class="picked">${snd.length?snd.map(m=>jp(m)).join(''):'<span class="empty">目前沒有發聲的弦</span>'}</div>
+      <div class="opts"><button class="btn" id="allOpen">全部空弦</button><button class="btn" id="allMute">全部不彈</button></div>`;
+  }
+}
+
+function renderBoard(){
+  const n=N(),sel=current.sel;
+  let tones=new Set(),rootPc=-1,exact=new Set();
+  if(st.tab==='chord'){tones=new Set(current.pcs);rootPc=current.rootPc}
+  if(st.tab==='pitch')exact=new Set(st.picks);
+  let h=`<div class="fb" style="grid-template-columns:40px repeat(${n},minmax(0,1fr))"><div class="h"></div>`;
+  for(let i=0;i<n;i++){const m=sel&&sel[i]<0;h+=`<button class="h" data-head="${i}"><span>${sLabel(i)}</span><strong>${letter(st.strings[i])}</strong>${m?'<span class="mute">× 不彈</span>':'<span>&nbsp;</span>'}</button>`}
+  for(let f=0;f<=st.maxFret;f++){
+    h+=`<div class="lab">${f===0?'空弦':f}</div>`;
+    for(let i=0;i<n;i++){
+      const m=st.strings[i]+f,pc=m%12,cls=['c'];
+      if(f===0)cls.push('r0');else if(f%12===0)cls.push('oct');
+      if(tones.has(pc))cls.push('tone');if(pc===rootPc)cls.push('root');
+      if(exact.has(m))cls.push('tone');
+      if(sel&&sel[i]===f)cls.push('on');
+      else if(st.tab!=='free'&&!tones.has(pc)&&!exact.has(m))cls.push('dim');
+      h+=`<button class="${cls.join(' ')}" data-cell="${i},${f}" aria-label="${sLabel(i)} ${f} ${letter(m)}"><span class="dot">${jp(m)}</span></button>`;
+    }
+  }
+  h+='</div>';
+  const legend=st.tab==='free'?'':`<div class="legend"><span style="--sw:var(--accent)">目前這個按法</span><span style="--sw:var(--gold-soft)">${st.tab==='chord'?'和弦音':'選的音'}</span>${st.tab==='chord'?'<span style="--sw:var(--gold)">根音（金框）</span>':''}</div>`;
+  $('#board').innerHTML=`<div class="bhead"><h2 style="margin:0">指板・數字是離空弦幾個半音</h2><button class="btn pri" id="play"${sel?'':' disabled'}>▶ 彈奏</button></div><div class="bscroll" id="bscroll">${h}</div>${legend}`;
+}
+
+function vCard(v,idx,selected){
+  const n=N();let cells='';
+  for(let i=0;i<n;i++){const f=v.frets[i];cells+=`<div><span class="fr">${sLabel(i)}・${f<0?'×':f===0?'空':f}</span><span class="n">${f<0?'':jp(st.strings[i]+f)}</span></div>`}
+  const r=v.r,tags=[];
+  if(r.ok){tags.push(r.pos?`把位 ${r.pos}`:'空弦位');if(r.span)tags.push(`跨度 ${r.span}`);tags.push(`${r.fingers} 指`);if(r.barre)tags.push('橫按');if(v.bassOk)tags.push('<b>根音在低</b>')}
+  return `<button class="vc${selected?' sel':''}${r.ok?'':' fail'}" data-v="${idx}">
+    <div class="vstr" style="grid-template-columns:repeat(${n},minmax(0,1fr))">${cells}</div>
+    ${r.ok?`<div class="tags">${tags.map(t=>`<span class="tag${t.startsWith('<b>')?' gold':''}">${t.replace(/<\/?b>/g,'')}</span>`).join('')}</div>`:`<ul class="probs" style="margin:0">${r.probs.map(p=>`<li>${p}</li>`).join('')}</ul>`}
+  </button>`;
+}
+
+function renderRes(){
+  const el=$('#res');
+  if(st.tab==='chord'){
+    const c=current;
+    el.innerHTML=`<div class="cname">${chordName(c.rootPc,st.type)}</div>
+      <p class="meta">和弦音：${c.pcs.map(p=>degHTML(p-st.key)).join('　')}</p>
+      ${c.total?`<div class="status ok"><span class="big">找到 ${c.total} 種按得到的按法</span></div>
+        <p class="meta">由好按排到難按${c.total>60?'，只列前 60 種':''}。點一種按法會在指板上顯示並彈出聲音。</p>
+        <div class="vlist">${c.list.map((v,i)=>vCard(v,i,i===st.selIdx)).join('')}</div>`
+      :`<div class="status bad"><span class="big">這個定弦按不到</span></div><p class="meta">可以試試放寬「手指限制」、取消「最低音必須是根音」，或讓更少的弦發聲。</p>`}`;
+  }else if(st.tab==='pitch'){
+    const c=current;
+    if(!c.picks.length){el.innerHTML=`<h2>結果</h2><p class="empty">選好寫出來的音之後，這裡會告訴你能不能按、要用哪條弦按哪裡。</p>`;return}
+    const ids=identify(c.picks.map(m=>m%12));
+    const idHTML=ids.length?`<div class="cname">${ids.slice(0,3).map(x=>`<span>${chordName(x.root,x.k)}${x.omit?'<small>（省略五音）</small>':''}</span>`).join('<small>或</small>')}</div>`:'';
+    let body='';
+    if(c.tooMany)body=`<div class="status bad"><span class="big">音比弦多，按不到</span></div><p class="meta">選了 ${c.picks.length} 個音，但只有 ${N()} 條弦。每條弦同時只能出一個音。</p>`;
+    else if(c.unreach.length)body=`<div class="status bad"><span class="big">有音超出音域</span></div><p class="meta">${c.unreach.map(m=>jp(m)).join(' ')} 在目前定弦和指板範圍內沒有任何一條弦彈得到。</p>`;
+    else if(c.ok.length)body=`<div class="status ok"><span class="big">按得到，共 ${c.ok.length} 種分配方式</span></div><div class="vlist" style="margin-top:10px">${c.ok.slice(0,30).map((v,i)=>vCard(v,i,i===st.selIdx)).join('')}</div>`;
+    else body=`<div class="status bad"><span class="big">按不到</span></div><p class="meta">所有分配方式都有問題，以下是最接近的幾種：</p><div class="vlist">${c.fail.slice(0,6).map((v,i)=>vCard(v,i,i===st.selIdx)).join('')}</div>`;
+    el.innerHTML=idHTML+body;
+  }else{
+    const r=current.r,snd=st.free.map((f,i)=>f>=0?(st.strings[i]+f)%12:null).filter(x=>x!==null);
+    const ids=identify(snd);
+    el.innerHTML=`${ids.length?`<div class="cname">${ids.slice(0,3).map(x=>`<span>${chordName(x.root,x.k)}${x.omit?'<small>（省略五音）</small>':''}</span>`).join('<small>或</small>')}</div>`:snd.length>1?'<p class="meta">這組音不是常見和弦</p>':''}
+      ${r.ok?`<div class="status ok"><span class="big">按得到</span><span class="meta" style="font-weight:400">${r.fingers} 指${r.span?`・跨度 ${r.span}`:''}${r.barre?'・橫按':''}</span></div>`
+      :`<div class="status bad"><span class="big">按不到</span></div><ul class="probs">${r.probs.map(p=>`<li>${p}</li>`).join('')}</ul>`}`;
+  }
+}
+
+/* ---------- 事件 ---------- */
+function setStrings(arr,preset){st.strings=arr;st.preset=preset;st.free=arr.map(()=>0);st.picks=st.picks.filter(()=>true);st.selIdx=0;st.minSound=Math.min(st.minSound,arr.length);renderSetup();render()}
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='preset'){if(PRESETS[t.value])setStrings(PRESETS[t.value].slice(),t.value);else{st.preset='自訂';save()}return}
+  if(t.id==='key'){st.key=+t.value;render();return}
+  if(t.dataset.str!==undefined){st.strings[+t.dataset.str]=+t.value;st.preset='自訂';$('#preset').value='自訂';st.selIdx=0;render();return}
+  if(['maxSpan','cross','maxFingers','minSound','maxFret'].includes(t.id)){const v=parseFloat(t.value);if(!isNaN(v)){st[t.id]=v;st.selIdx=0;render()}return}
+  if(['barre','skipInner','rootBass','omit5'].includes(t.id)){st[t.id]=t.checked;st.selIdx=0;render()}
+});
+document.addEventListener('toggle',e=>{if(e.target.id==='rules'){st.rulesOpen=e.target.open;save()}},true);
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.id==='addStr'){const top=Math.max(...st.strings);setStrings([...st.strings,Math.min(84,top+5)],'自訂');return}
+  if(b.id==='rmStr'){setStrings(st.strings.slice(0,-1),'自訂');return}
+  if(b.dataset.tab){st.tab=b.dataset.tab;st.selIdx=0;render();return}
+  if(b.dataset.root){st.root=+b.dataset.root;st.selIdx=0;render();pluck(60+st.key+st.root);return}
+  if(b.dataset.type){st.type=b.dataset.type;st.selIdx=0;render();return}
+  if(b.dataset.pick){const m=+b.dataset.pick;const i=st.picks.indexOf(m);
+    if(i>=0)st.picks.splice(i,1);else if(st.picks.length<N()){st.picks.push(m);pluck(m)}
+    st.selIdx=0;render();return}
+  if(b.id==='clearPicks'){st.picks=[];render();return}
+  if(b.id==='allOpen'){st.free=st.strings.map(()=>0);render();return}
+  if(b.id==='allMute'){st.free=st.strings.map(()=>-1);render();return}
+  if(b.id==='play'){strum(current.sel);return}
+  if(b.dataset.v!==undefined){st.selIdx=+b.dataset.v;const sc=$('#bscroll')?.scrollTop;render();strum(current.sel);scrollToSel(sc);return}
+  if(b.dataset.head!==undefined){const i=+b.dataset.head;const base=(st.tab==='free'?st.free:(current.sel||st.strings.map(()=>-1))).slice();base[i]=base[i]===-1?0:-1;st.free=base;st.tab='free';render();return}
+  if(b.dataset.cell){const [i,f]=b.dataset.cell.split(',').map(Number);
+    const sc=$('#bscroll').scrollTop;
+    const base=(st.tab==='free'?st.free:(current.sel||st.strings.map(()=>-1))).slice();
+    base[i]=base[i]===f?-1:f;st.free=base;st.tab='free';render();$('#bscroll').scrollTop=sc;
+    if(base[i]>=0)pluck(st.strings[i]+f);return}
+});
+function scrollToSel(prev){
+  const sc=$('#bscroll');if(!sc)return;sc.scrollTop=prev||0;
+  const on=[...sc.querySelectorAll('.c.on')];if(!on.length)return;
+  const rows=on.map(x=>x.offsetTop);const top=Math.min(...rows),bot=Math.max(...rows)+40;
+  if(top<sc.scrollTop+40||bot>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,top-80);
+}
+renderSetup();render();
+</script>
+</body>
+</html>
