@@ -428,8 +428,15 @@ async function loadScoreFile(file){
       if(!path||!zip.file(path))throw new Error('壓縮檔裡找不到樂譜。');
       text=await zip.file(path).async('string');
     }else text=new TextDecoder().decode(buf);
-    useScore(parseMusicXML(text),file.name);
+    useScore(parseMusicXML(text),file.name);rememberScore(text,file.name);
   }catch(e){SCORE_ERR=e.message||'讀取失敗。';render()}
+}
+function rememberScore(text,name){try{localStorage.setItem('pluckchord.score',JSON.stringify({text,name}))}catch(e){}}
+function restoreScore(){
+  try{const o=JSON.parse(localStorage.getItem('pluckchord.score')||'null');if(!o)return;
+    const sc=parseMusicXML(o.text);if(!sc.parts.length)return;
+    SCORE=sc;SCORE_NAME=o.name;if(st.partIdx>=sc.parts.length)st.partIdx=0;
+  }catch(e){}
 }
 function useScore(sc,name){
   stopPlay();
@@ -814,7 +821,7 @@ function renderRes(){
     el.innerHTML=h+'</div>';
   }else if(st.tab==='score'){
     const a=current.ana;
-    if(!a){el.innerHTML=`<h2>結果</h2><p class="empty">選擇 MuseScore 匯出的 MusicXML 檔，或先按「載入範例」看看報告長什麼樣子。</p>`;return}
+    if(!a){el.innerHTML=`<h2>結果</h2><p class="empty">選擇 MuseScore 匯出的 MusicXML 檔，或先按「載入範例」看看報告長什麼樣子。匯入後會出現「從頭播放」按鈕。</p>`;return}
     const ev=a.ev,n=N();
     if(!ev.length){el.innerHTML=`<h2>結果</h2><p class="empty">「${partLabel(a.part)}」這個聲部沒有任何音。</p>`;return}
     const cnt=k=>ev.filter(k).length;
@@ -917,7 +924,7 @@ document.addEventListener('click',e=>{
   if(b.id==='playAll'){playScore(0);return}
   if(b.id==='playFrom'){playScore(st.scoreSel||0);return}
   if(b.id==='stopPlay'){stopPlay();return}
-  if(b.id==='loadSample'){useScore(parseMusicXML(sampleXML()),'範例樂譜（柳琴，4 小節）');return}
+  if(b.id==='loadSample'){const x=sampleXML(),nm='範例樂譜（柳琴，4 小節）';useScore(parseMusicXML(x),nm);rememberScore(x,nm);return}
   if(b.dataset.ev!==undefined){st.scoreSel=+b.dataset.ev;const sc=$('#bscroll')?.scrollTop;
     const e=current.ana.ev[st.scoreSel];current.sel=e?.chosen?.frets||null;current.seqNotes=e?e.midis:[];
     renderBoard();document.querySelectorAll('.srow.sel').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');
@@ -943,7 +950,7 @@ function scrollToSel(prev){
   const rows=on.map(x=>x.offsetTop);const top=Math.min(...rows),bot=Math.max(...rows)+40;
   if(top<sc.scrollTop+40||bot>sc.scrollTop+sc.clientHeight)sc.scrollTop=Math.max(0,top-80);
 }
-renderSetup();render();
+restoreScore();renderSetup();render();
 </script>
 </body>
 </html>
