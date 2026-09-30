@@ -157,6 +157,10 @@ textarea{width:100%;min-height:180px;font:inherit;font-size:.95rem;line-height:1
 .sugg b{font-weight:700}
 .beat{font-size:.78rem;color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
 .tag.bad{background:var(--bad-soft);color:var(--bad);font-weight:700}
+.inav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.inav .cnt{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums;min-width:4.5em;text-align:center}
+.bcap{margin:0 0 8px;font-size:.88rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.bcap b{font-weight:700}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -619,14 +623,34 @@ function playScore(from){
   timers.push(setTimeout(stopPlay,Math.max(0,(endAt-c.currentTime)*1000)+1800));
   PLAY={gain,timers};updatePlayBtns();
 }
-function followEvent(i){
+function followEvent(i,force){
   if(st.tab!=='score'||!current.ana)return;
   st.scoreSel=i;const e=current.ana.ev[i];
   current.sel=e?.chosen?.frets||null;current.seqNotes=e?e.midis:[];
   const sc=$('#bscroll')?.scrollTop;renderBoard();scrollToSel(sc);
   document.querySelectorAll('.srow.sel').forEach(x=>x.classList.remove('sel'));
   const row=document.querySelector(`[data-ev="${i}"]`);
-  if(row){row.classList.add('sel');if(window.matchMedia('(min-width:860px)').matches)row.scrollIntoView({block:'nearest'})}
+  if(row){row.classList.add('sel');if(force||window.matchMedia('(min-width:860px)').matches)row.scrollIntoView({block:force?'center':'nearest'})}
+}
+/* 跳到上一個／下一個有問題的地方 */
+function issueIdx(){return current.ana?current.ana.ev.filter(e=>e.issue).map(e=>e.i):[]}
+function issueText(e){
+  if(!e)return '';
+  if(!e.midis.length)return '休止';
+  if(e.res.tooMany)return '按不到：音比弦多';
+  if(e.res.unreach.length)return '超出音域';
+  if(!e.chosen)return '按不到';
+  const t=[];if(e.fast)t.push('換把太快');else if(e.big)t.push('換把較遠');
+  if(e.heldBreak)t.push('持續音要換弦');if(e.arp)t.push('跳弦，需分解');
+  return t.join('・')||'沒問題';
+}
+function jumpIssue(dir){
+  const list=issueIdx();if(!list.length)return;
+  const cur=st.scoreSel;
+  const next=dir>0?(list.find(i=>i>cur)??list[0]):([...list].reverse().find(i=>i<cur)??list[list.length-1]);
+  followEvent(next,window.matchMedia('(min-width:860px)').matches);
+  const e=current.ana.ev[next];
+  if(e.chosen)strum(e.chosen.frets);else{const c=actx();if(c){let t=c.currentTime+.02;e.midis.forEach(m=>{pluck(m,t);t+=.05})}}
 }
 const playBtnsHTML=()=>PLAY?'<button class="btn pri" id="stopPlay">■ 停止</button>':'<button class="btn pri" id="playAll">▶ 從頭播放</button><button class="btn" id="playFrom">▶ 從選取處播放</button>';
 function updatePlayBtns(){document.querySelectorAll('.playbox').forEach(x=>x.innerHTML=playBtnsHTML())}
@@ -757,7 +781,14 @@ function renderBoard(){
   }
   h+='</div>';
   const legend=st.tab==='free'?'':`<div class="legend"><span style="--sw:var(--accent)">目前這個按法</span><span style="--sw:var(--gold-soft)">${st.tab==='chord'?'和弦音':st.tab==='seq'||st.tab==='score'?'這個時間點的音':'選的音'}</span>${st.tab==='chord'?'<span style="--sw:var(--gold)">根音（金框）</span>':''}</div>`;
-  $('#board').innerHTML=`<div class="bhead"><h2 style="margin:0">指板・數字是離空弦幾個半音</h2><span style="display:flex;gap:6px;flex-wrap:wrap">${st.tab==='score'&&current.ana?`<span class="playbox" style="display:flex;gap:6px">${playBtnsHTML()}</span>`:''}<button class="btn${st.tab==='score'?'':' pri'}" id="play"${sel?'':' disabled'}>▶ ${st.tab==='score'?'這個和弦':'彈奏'}</button></span></div><div class="bscroll" id="bscroll">${h}</div>${legend}`;
+  let nav='';
+  if(st.tab==='score'&&current.ana&&current.ana.ev.length){
+    const list=issueIdx(),e=current.ana.ev[st.scoreSel],pos=list.indexOf(st.scoreSel);
+    const beat=e?(Math.abs(e.beat-Math.round(e.beat))<.01?Math.round(e.beat):e.beat.toFixed(2)):'';
+    nav=`<div class="inav"><button class="btn" id="prevIssue"${list.length?'':' disabled'}>◀ 上一個問題</button><span class="cnt">${list.length?(pos>=0?`${pos+1} / ${list.length}`:`共 ${list.length} 處`):'沒有問題'}</span><button class="btn" id="nextIssue"${list.length?'':' disabled'}>下一個問題 ▶</button></div>
+      ${e?`<p class="bcap"><b>第 ${e.measure} 小節・拍 ${beat}</b><span class="pill ${e.issue?'bad':'ok'}">${issueText(e)}</span></p>`:''}`;
+  }
+  $('#board').innerHTML=nav+`<div class="bhead"><h2 style="margin:0">指板・數字是離空弦幾個半音</h2><span style="display:flex;gap:6px;flex-wrap:wrap">${st.tab==='score'&&current.ana?`<span class="playbox" style="display:flex;gap:6px">${playBtnsHTML()}</span>`:''}<button class="btn${st.tab==='score'?'':' pri'}" id="play"${sel?'':' disabled'}>▶ ${st.tab==='score'?'這個和弦':'彈奏'}</button></span></div><div class="bscroll" id="bscroll">${h}</div>${legend}`;
 }
 
 function vCard(v,idx,selected){
@@ -921,6 +952,8 @@ document.addEventListener('click',e=>{
     st.selIdx=0;render();return}
   if(b.id==='clearPicks'){st.picks=[];st.pickErr='';render();return}
   if(b.id==='applyTxt'){applyPickText();return}
+  if(b.id==='nextIssue'){jumpIssue(1);return}
+  if(b.id==='prevIssue'){jumpIssue(-1);return}
   if(b.id==='playAll'){playScore(0);return}
   if(b.id==='playFrom'){playScore(st.scoreSel||0);return}
   if(b.id==='stopPlay'){stopPlay();return}
