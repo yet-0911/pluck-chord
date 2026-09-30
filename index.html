@@ -672,12 +672,14 @@ function renderCtrl(){
       <p class="help">在 MuseScore 選「檔案 → 匯出」，格式選 MusicXML。<code>.mxl</code>（壓縮）和 <code>.musicxml</code> 都可以。</p>
       ${SCORE?`<div class="opts" style="align-items:flex-end">
         <label class="f" style="min-width:160px;flex:1">檢查哪個聲部<select id="partIdx">${parts.map((p,i)=>`<option value="${i}"${i===st.partIdx?' selected':''}>${partLabel(p).replace(/</g,'&lt;')}</option>`).join('')}</select></label>
+        <label class="f" style="width:130px">用什麼樂器檢查<select id="scoreInst">${Object.keys(PRESETS).map(k=>`<option${k===st.preset?' selected':''}>${k}</option>`).join('')}${PRESETS[st.preset]?'':'<option selected>目前的自訂定弦</option>'}</select></label>
         <label class="f" style="width:130px">記譜與實音<select id="xOct">${[[-2,'實音低兩個八度'],[-1,'實音低八度'],[0,'照譜上音高'],[1,'實音高八度']].map(([v,t])=>`<option value="${v}"${v===st.xOct?' selected':''}>${t}</option>`).join('')}</select></label>
         <label class="f" style="width:110px">速度（每分鐘拍數）<input type="number" id="tempo" min="20" max="300" step="1" value="${st.tempo||SCORE.tempo||80}"></label>
         <label class="f" style="width:150px">間隔短於幾秒算快速換把<input type="number" id="fastGap" min="0.05" max="2" step="0.05" value="${st.fastGap}"></label>
         <label class="f" style="width:150px">換把超過幾個半音要提醒<input type="number" id="moveWarn" min="1" max="12" step="1" value="${st.moveWarn}"></label>
       </div>
-      <p class="help">選好聲部後會自動套用對應的樂器定弦，調號也會自動設定。如果你們的分譜是比實音高或低八度記譜，請調整「記譜與實音」。</p>
+      ${guessPreset(parts[st.partIdx])?'':`<div class="sugg" style="margin-top:10px"><b>這個聲部叫「${partLabel(parts[st.partIdx]).replace(/</g,'&lt;')}」，看不出是哪種樂器。</b><span>請在「用什麼樂器檢查」選對樂器，目前是用 ${st.preset}（${st.strings.map(letter).join(' ')}）在檢查。也可以在 MuseScore 把樂器名稱改成柳琴、琵琶、中阮或大阮再匯出，下次就會自動選好。</span></div>`}
+      <p class="help">調號會從樂譜自動設定，只影響簡譜怎麼顯示，不影響按不按得到。如果你們的分譜是比實音高或低八度記譜，請調整「記譜與實音」。</p>
       <div class="opts"><label class="chk"><input type="checkbox" id="onlyIssues"${st.onlyIssues?' checked':''}>只顯示有問題的地方</label></div>`:''}`;
   }else{
     const snd=st.free.map((f,i)=>f>=0?st.strings[i]+f:null).filter(x=>x!==null);
@@ -836,6 +838,7 @@ document.addEventListener('change',e=>{
   if(t.id==='seqText')return;
   if(t.id==='scoreFile'){if(t.files&&t.files[0])loadScoreFile(t.files[0]);return}
   if(t.id==='partIdx'){st.partIdx=+t.value;st.scoreSel=0;applyPartPreset();render();return}
+  if(t.id==='scoreInst'){if(PRESETS[t.value])setStrings(PRESETS[t.value].slice(),t.value);return}
   if(t.id==='xOct'){st.xOct=+t.value;st.scoreSel=0;render();return}
   if(t.id==='tempo'){const v=parseFloat(t.value);if(v>0){st.tempo=v;render()}return}
   if(t.id==='fastGap'){const v=parseFloat(t.value);if(v>0){st.fastGap=v;render()}return}
