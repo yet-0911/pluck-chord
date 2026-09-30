@@ -432,6 +432,7 @@ async function loadScoreFile(file){
   }catch(e){SCORE_ERR=e.message||'讀取失敗。';render()}
 }
 function useScore(sc,name){
+  stopPlay();
   SCORE=sc;SCORE_NAME=name;SCORE_ERR='';ANA=null;
   if(!sc.parts.length){SCORE_ERR='樂譜裡沒有任何聲部。';SCORE=null;render();return}
   if(sc.keyFifths!==null){st.key=(((sc.keyFifths*7)%12)+12)%12;const k=$('#key');if(k)k.value=st.key}
@@ -576,17 +577,52 @@ function identify(pcSet){
 /* ---------- 聲音 ---------- */
 let ac;
 function actx(){if(!ac){const C=window.AudioContext||window.webkitAudioContext;if(!C)return null;ac=new C()}if(ac.state==='suspended')ac.resume();return ac}
-function pluck(m,when){
+function pluck(m,when,dest){
   const c=actx();if(!c)return;when=when||c.currentTime+.01;
   const f=440*Math.pow(2,(m-69)/12);
   const o=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),g2=c.createGain(),lp=c.createBiquadFilter();
   o.type='triangle';o.frequency.value=f;o2.type='sine';o2.frequency.value=f*2;g2.gain.value=.25;
   lp.type='lowpass';lp.frequency.setValueAtTime(Math.min(f*10,12000),when);lp.frequency.exponentialRampToValueAtTime(f*1.5,when+.7);
   g.gain.setValueAtTime(0,when);g.gain.linearRampToValueAtTime(.3,when+.004);g.gain.exponentialRampToValueAtTime(.001,when+1.8);
-  o.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(g);g.connect(c.destination);
+  o.connect(lp);o2.connect(g2);g2.connect(lp);lp.connect(g);g.connect(dest||c.destination);
   o.start(when);o2.start(when);o.stop(when+1.9);o2.stop(when+1.9);
 }
 function strum(fr,start){const c=actx();if(!c||!fr)return;let t=start||c.currentTime+.02;fr.forEach((f,i)=>{if(f>=0){pluck(st.strings[i]+f,t);t+=.05}})}
+/* 整段播放：照樂譜節奏彈出寫的音，並讓指板跟著走 */
+let PLAY=null;
+function stopPlay(){
+  if(!PLAY)return;const p=PLAY;PLAY=null;
+  p.timers.forEach(clearTimeout);
+  try{p.gain.gain.setTargetAtTime(0,ac.currentTime,.03);setTimeout(()=>p.gain.disconnect(),300)}catch(e){}
+  updatePlayBtns();
+}
+function playScore(from){
+  stopPlay();
+  const a=analyzeScore();if(!a||!a.ev.length)return;
+  const c=actx();if(!c)return;
+  const gain=c.createGain();gain.gain.value=.7;gain.connect(c.destination);
+  const ev=a.ev,start=Math.min(from||0,ev.length-1),t0=ev[start].t,base=c.currentTime+.15,timers=[];
+  const q=60/a.bpm;let endAt=base;
+  ev.slice(start).forEach(e=>{
+    const when=base+(e.t-t0)*q;
+    [...e.att].sort((x,y)=>x-y).forEach((m,k)=>pluck(m,when+k*.012,gain));
+    timers.push(setTimeout(()=>followEvent(e.i),Math.max(0,(when-c.currentTime)*1000)));
+    endAt=when;
+  });
+  timers.push(setTimeout(stopPlay,Math.max(0,(endAt-c.currentTime)*1000)+1800));
+  PLAY={gain,timers};updatePlayBtns();
+}
+function followEvent(i){
+  if(st.tab!=='score'||!current.ana)return;
+  st.scoreSel=i;const e=current.ana.ev[i];
+  current.sel=e?.chosen?.frets||null;current.seqNotes=e?e.midis:[];
+  const sc=$('#bscroll')?.scrollTop;renderBoard();scrollToSel(sc);
+  document.querySelectorAll('.srow.sel').forEach(x=>x.classList.remove('sel'));
+  const row=document.querySelector(`[data-ev="${i}"]`);
+  if(row){row.classList.add('sel');if(window.matchMedia('(min-width:860px)').matches)row.scrollIntoView({block:'nearest'})}
+}
+const playBtnsHTML=()=>PLAY?'<button class="btn pri" id="stopPlay">■ 停止</button>':'<button class="btn pri" id="playAll">▶ 從頭播放</button><button class="btn" id="playFrom">▶ 從選取處播放</button>';
+function updatePlayBtns(){document.querySelectorAll('.playbox').forEach(x=>x.innerHTML=playBtnsHTML())}
 function playSeq(items){const c=actx();if(!c)return;let t=c.currentTime+.05;items.forEach(it=>{if(it.chosen)strum(it.chosen.frets,t);t+=.9})}
 
 /* ---------- 畫面 ---------- */
@@ -620,6 +656,7 @@ function renderTabs(){document.querySelectorAll('#tabs button').forEach(b=>b.set
 
 let current={};
 function render(){
+  if(PLAY&&st.tab!=='score')stopPlay();
   renderTabs();
   if(st.tab==='chord'){current=searchChord();current.sel=current.list[st.selIdx]?.frets||null}
   else if(st.tab==='pitch'){current=searchPitch();const all=current.ok.length?current.ok:current.fail;current.sel=all[st.selIdx]?.frets||all[0]?.frets||null}
@@ -680,6 +717,7 @@ function renderCtrl(){
       </div>
       ${guessPreset(parts[st.partIdx])?'':`<div class="sugg" style="margin-top:10px"><b>這個聲部叫「${partLabel(parts[st.partIdx]).replace(/</g,'&lt;')}」，看不出是哪種樂器。</b><span>請在「用什麼樂器檢查」選對樂器，目前是用 ${st.preset}（${st.strings.map(letter).join(' ')}）在檢查。也可以在 MuseScore 把樂器名稱改成柳琴、琵琶、中阮或大阮再匯出，下次就會自動選好。</span></div>`}
       <p class="help">調號會從樂譜自動設定，只影響簡譜怎麼顯示，不影響按不按得到。如果你們的分譜是比實音高或低八度記譜，請調整「記譜與實音」。</p>
+      <div class="opts"><span class="playbox" style="display:flex;gap:8px;flex-wrap:wrap">${playBtnsHTML()}</span></div>
       <div class="opts"><label class="chk"><input type="checkbox" id="onlyIssues"${st.onlyIssues?' checked':''}>只顯示有問題的地方</label></div>`:''}`;
   }else{
     const snd=st.free.map((f,i)=>f>=0?st.strings[i]+f:null).filter(x=>x!==null);
@@ -712,7 +750,7 @@ function renderBoard(){
   }
   h+='</div>';
   const legend=st.tab==='free'?'':`<div class="legend"><span style="--sw:var(--accent)">目前這個按法</span><span style="--sw:var(--gold-soft)">${st.tab==='chord'?'和弦音':st.tab==='seq'||st.tab==='score'?'這個時間點的音':'選的音'}</span>${st.tab==='chord'?'<span style="--sw:var(--gold)">根音（金框）</span>':''}</div>`;
-  $('#board').innerHTML=`<div class="bhead"><h2 style="margin:0">指板・數字是離空弦幾個半音</h2><button class="btn pri" id="play"${sel?'':' disabled'}>▶ 彈奏</button></div><div class="bscroll" id="bscroll">${h}</div>${legend}`;
+  $('#board').innerHTML=`<div class="bhead"><h2 style="margin:0">指板・數字是離空弦幾個半音</h2><span style="display:flex;gap:6px;flex-wrap:wrap">${st.tab==='score'&&current.ana?`<span class="playbox" style="display:flex;gap:6px">${playBtnsHTML()}</span>`:''}<button class="btn${st.tab==='score'?'':' pri'}" id="play"${sel?'':' disabled'}>▶ ${st.tab==='score'?'這個和弦':'彈奏'}</button></span></div><div class="bscroll" id="bscroll">${h}</div>${legend}`;
 }
 
 function vCard(v,idx,selected){
@@ -876,6 +914,9 @@ document.addEventListener('click',e=>{
     st.selIdx=0;render();return}
   if(b.id==='clearPicks'){st.picks=[];st.pickErr='';render();return}
   if(b.id==='applyTxt'){applyPickText();return}
+  if(b.id==='playAll'){playScore(0);return}
+  if(b.id==='playFrom'){playScore(st.scoreSel||0);return}
+  if(b.id==='stopPlay'){stopPlay();return}
   if(b.id==='loadSample'){useScore(parseMusicXML(sampleXML()),'範例樂譜（柳琴，4 小節）');return}
   if(b.dataset.ev!==undefined){st.scoreSel=+b.dataset.ev;const sc=$('#bscroll')?.scrollTop;
     const e=current.ana.ev[st.scoreSel];current.sel=e?.chosen?.frets||null;current.seqNotes=e?e.midis:[];
